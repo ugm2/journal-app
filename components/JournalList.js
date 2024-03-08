@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import { fetchEntries, deleteEntry } from '../services/journalService';
 import { View, FlatList, Button, StyleSheet } from 'react-native';
 import JournalEntry from './JournalEntry';
 import NewEntryForm from './NewEntryForm';
@@ -10,37 +10,16 @@ export default function JournalList() {
   const [sortAscending, setSortAscending] = useState(true);
 
   useEffect(() => {
-    // Function to fetch entries from Supabase
-    const fetchEntries = async () => {
-      let { data: entries, error } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (error) console.log('error', error);
-      else setEntries(entries);
+    const getEntries = async () => {
+      const entries = await fetchEntries();
+      setEntries(entries);
     };
-
-    fetchEntries();
+    getEntries();
   }, []);
 
   const handleAddEntry = (newEntry) => {
     const newId = entries.length > 0 ? Math.max(...entries.map((e) => e.id)) + 1 : 1;
     setEntries([...entries, { ...newEntry, id: newId }]);
-  };
-
-  const handleDeleteEntry = async (id) => {
-    const { data, error } = await supabase
-      .from('journal_entries')
-      .delete()
-      .match({ id });
-
-    if (error) {
-      alert('Error deleting entry:', error.message);
-    } else {
-      // Update the local state to remove the deleted entry
-      setEntries(entries.filter(entry => entry.id !== id));
-    }
   };
 
   const handleSortEntries = () => {
@@ -51,6 +30,16 @@ export default function JournalList() {
     });
     setEntries(sortedEntries);
     setSortAscending(!sortAscending); // toggle the sorting state
+  };
+
+  const handleDeleteEntry = async (id) => {
+    const { error } = await deleteEntry(id);
+    if (error) {
+      alert('Error deleting entry:', error.message);
+    } else {
+      // Update the local state to remove the deleted entry
+      setEntries(currentEntries => currentEntries.filter(entry => entry.id !== id));
+    }
   };
 
   return (
@@ -64,7 +53,7 @@ export default function JournalList() {
     data={entries}
     keyExtractor={(item) => item.id.toString()}
     renderItem={({ item }) => (
-      <JournalEntry entry={item} onDelete={handleDeleteEntry} />
+      <JournalEntry entry={item} onDelete={() => handleDeleteEntry(item.id)} />
     )}
   />
     </View>
